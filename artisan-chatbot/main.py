@@ -9,6 +9,7 @@ from langchain.chains import create_retrieval_chain, create_history_aware_retrie
 from langchain.chains.conversation.memory import ConversationBufferMemory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
+import traceback
 import os
 
 
@@ -20,7 +21,10 @@ docs_path = os.path.join(os.path.dirname(__file__), 'data', 'docs.txt')
 loader = TextLoader(docs_path)
 docs = loader.load()
 
-text_splitter = RecursiveCharacterTextSplitter()
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=400,
+    chunk_overlap=20
+)
 documents = text_splitter.split_documents(docs)
 
 embeddings = OpenAIEmbeddings()
@@ -37,7 +41,7 @@ memory = ConversationBufferMemory(memory_key="history", return_messages=True)
 # Question: {input}""")
 
 prompt = ChatPromptTemplate.from_messages([
-        ("system", """Answer the user's question based on the context: 
+        ("system", """Answer the user's question based on the context, don't make up answer if the answer can't be found in the context: 
                 <context>
                 {context}
                 </context>
@@ -51,26 +55,27 @@ llm = ChatOpenAI()
 document_chain = create_stuff_documents_chain(llm, prompt)
 retriever = vector.as_retriever(search_kwargs={'k': 1})
 
-retriever_prompt = ChatPromptTemplate.from_messages([
-    MessagesPlaceholder(variable_name="chat_history"),
-    ("human", "{input}"),
-    ("human",
-     "Given the previous conversation, generate a search query to look up so that the information in previous conversation is considered")
-])
+# retriever_prompt = ChatPromptTemplate.from_messages([
+#     MessagesPlaceholder(variable_name="chat_history"),
+#     ("human", "{input}"),
+#     ("human",
+#      "Given the previous conversation, generate a search query to look up so that the information in previous conversation is considered")
+# ])
 
-# retrieval_chain = create_retrieval_chain(retriever, document_chain)
-retrieval_chain = create_history_aware_retriever(
-    llm=llm,
-    retriever=retriever,
-    prompt=retriever_prompt
-)
+# retrieval_chain = create_history_aware_retriever(
+#     llm=llm,
+#     retriever=retriever,
+#     prompt=retriever_prompt
+# )
+
+retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
 chat_history = []
 
 app = FastAPI()
 
 
-@app.get("")
+@app.get("/")
 def read_root():
     return {"message": "This is Artisan ChatBot"}
 
@@ -85,9 +90,9 @@ def get_answer(input: Input):
             }
         )
         chat_history.append(HumanMessage(content=input.content))
-        chat_history.append(AIMessage(content=response["answer"]))
+        chat_history.append(AIMessage(content=response['answer']))
         while len(chat_history) > 20:
             chat_history.pop(0)
-        return {"answer": response["answer"]}
+        return {"answer": response['answer']}
     except Exception as e:
-        return {"answer": str(e)}
+        return {"answer": 'ERROR: ' + traceback.format_exc()}
