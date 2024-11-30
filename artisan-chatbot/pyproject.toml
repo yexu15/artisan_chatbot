@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "artisan-chatbot"
+version = "0.1.0"
+description = ""
+authors = ["Ye Xu <ye.xu@bytedance.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+fastapi = {extras = ["standard"], version = "^0.115.5"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
